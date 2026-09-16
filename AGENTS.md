@@ -135,4 +135,22 @@ flowchart LR
 
 1. **Server-Side Key Isolation**: `DEEPSEEK_API_KEY` remains server-side only in `.env` / `pinokio/ENVIRONMENT`. It is never bundled into client JavaScript.
 2. **Rate Limiter**: Implement `GEV_RATELIMIT_DEEPSEEK_PER_MIN` (default 60 req/min) in `vite.config.js` following the pattern of `GEV_RATELIMIT_OPENAI_PER_MIN`.
-3. **Payload Sanitization**: Limit prompt sizes to 32 KB to prevent prompt injection or denial-of-service.
+## 6. Oracle Edition & Upstream Sync (Completed)
+
+As of September 2026, the God's Eye View repository was officially forked into **God's Eye View: Oracle Edition** (`NukeThemAII/gods-eye-view-oracle`).
+
+* **Milestones 1-4 COMPLETED**: The DeepSeek integration is fully operational, defaulting to `deepseek-flash` with overrides exposed in `pinokio/_ENVIRONMENT`.
+* **The "Director" Upstream Sync**: The fork was synced with the latest massive architectural refactor from `bilawalsidhu/gods-eye-view` (the "Director" update). 
+* **Refactor Adjustments**: To resolve merge conflicts from the monolithic-to-modular transition, our DeepSeek API proxy logic was successfully relocated from the monolithic `vite.config.js` into clean, dedicated modules at `server/providers/deepseek.js`. Chat styling was extracted to `src/ui/styles/deepseek-chat.css`.
+
+---
+
+## 7. Future Roadmap: Crypto & Financial Intelligence
+
+With the DeepSeek integration stable and the new modular "Director" architecture in place, future development on the Oracle Edition will pivot toward financial intelligence overlay systems:
+
+1. **Live Crypto & Stock Intelligence**: Plotting financial data over geospatial regions (e.g., matching sentiment heatmaps or trading volumes to specific global markets).
+2. **Whale Tracking**: Visualizing large cryptocurrency transactions and tracing physical corporate assets globally.
+3. **Decentralized Node Visualizer**: Live mapping of global blockchain node distributions across the photorealistic globe.
+
+These features will leverage the new `src/data/` layer architecture and custom `deepseek-flash` tool calling.
