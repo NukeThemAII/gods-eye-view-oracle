@@ -514,6 +514,12 @@ function googleRateLimiter() {
   if (_googleRateLimiter === undefined) _googleRateLimiter = makeOptInRateLimiter(process.env.GEV_RATELIMIT_GOOGLE_PER_MIN);
   return _googleRateLimiter;
 }
+let _deepseekRateLimiter;
+/** DeepSeek cost endpoints (chat + hud-summary). Null = unlimited (default). */
+function deepseekRateLimiter() {
+  if (_deepseekRateLimiter === undefined) _deepseekRateLimiter = makeOptInRateLimiter(process.env.GEV_RATELIMIT_DEEPSEEK_PER_MIN);
+  return _deepseekRateLimiter;
+}
 
 /**
  * Apply an opt-in limiter to a request, writing a 429 when over the cap.
@@ -1380,6 +1386,9 @@ const OPENAI_REALTIME_REASONING_DEFAULT = 'low';
 const OPENAI_REALTIME_CONTEXT_TOKENS_DEFAULT = 3000;
 const OPENAI_REALTIME_CONTEXT_RETENTION_DEFAULT = 0.5;
 const OPENAI_HUD_SUMMARY_MODEL_DEFAULT = 'gpt-5-nano';
+const DEEPSEEK_HUD_SUMMARY_MODEL_DEFAULT = 'deepseek-flash';
+const DEEPSEEK_COMMAND_MODEL_DEFAULT = 'deepseek-flash';
+const DEEPSEEK_API_BASE = 'https://api.deepseek.com';
 const REALTIME_DEBUG_LOG_DIR = path.join(__dirname, '.gev-logs');
 const REALTIME_DEBUG_LOG_FILE = path.join(REALTIME_DEBUG_LOG_DIR, 'realtime-conversations.jsonl');
 const REALTIME_DEBUG_LOG_MAX_BYTES = 8 * 1024 * 1024;
@@ -5071,56 +5080,196 @@ export function openAiRealtimeProxy() {
       }
 
       const apiKey = process.env.OPENAI_API_KEY;
-      const keyless = keylessHudSummaryResponse(apiKey);
-      if (keyless) {
-        res.statusCode = keyless.statusCode;
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-store');
-        res.end(JSON.stringify(keyless.payload));
-        return;
+      const deepseekKey = process.env.DEEPSEEK_API_KEY;
+      const useDeepSeek = !String(apiKey ?? '').trim() && String(deepseekKey ?? '').trim();
+
+      // If neither provider is configured, return the graceful keyless response.
+      if (!useDeepSeek) {
+        const keyless = keylessHudSummaryResponse(apiKey);
+        if (keyless) {
+          res.statusCode = keyless.statusCode;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(JSON.stringify(keyless.payload));
+          return;
+        }
       }
 
-      // Opt-in per-IP throttle (GEV_RATELIMIT_OPENAI_PER_MIN). Keyless HUD
-      // fallback has no provider cost and resolves above without consuming a
-      // paid-endpoint quota slot.
-      if (!enforceOptInRateLimit(openAiRateLimiter(), req, res)) return;
+      // Opt-in per-IP throttle. Keyless HUD fallback has no provider cost and
+      // resolves above without consuming a paid-endpoint quota slot.
+      const limiter = useDeepSeek ? deepseekRateLimiter() : openAiRateLimiter();
+      if (!enforceOptInRateLimit(limiter, req, res)) return;
 
       try {
         const body = await readRequestBody(req, 64 * 1024);
         const context = JSON.parse(body || '{}');
-        const response = await fetch('https://api.openai.com/v1/responses', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: process.env.OPENAI_HUD_SUMMARY_MODEL || OPENAI_HUD_SUMMARY_MODEL_DEFAULT,
-            instructions: [
-              "Write one concise intelligence-HUD summary for God's Eye View.",
-              'Use only the supplied place, street, nearby-place, and enabled-layer text labels.',
-              'Prefer the clearest named place and include a relevant enabled layer only when useful.',
-              'Do not infer from coordinates or invent a place.',
-              'Output exactly five words with no title, punctuation, markdown, or introductory phrase.',
-            ].join(' '),
-            input: JSON.stringify(context),
-            reasoning: { effort: 'minimal' },
-            max_output_tokens: 100,
-          }),
-        });
-        const data = await response.json().catch(() => ({}));
-        const summary = toFiveWordHudSummary(extractOpenAiResponseText(data));
+        const hudInstructions = [
+          "Write one concise intelligence-HUD summary for God's Eye View.",
+          'Use only the supplied place, street, nearby-place, and enabled-layer text labels.',
+          'Prefer the clearest named place and include a relevant enabled layer only when useful.',
+          'Do not infer from coordinates or invent a place.',
+          'Output exactly five words with no title, punctuation, markdown, or introductory phrase.',
+        ].join(' ');
+
+        let response, data, summary;
+        if (useDeepSeek) {
+          // DeepSeek Chat Completions (OpenAI-compatible format).
+          response = await fetch(`${DEEPSEEK_API_BASE}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${deepseekKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: process.env.DEEPSEEK_HUD_SUMMARY_MODEL || DEEPSEEK_HUD_SUMMARY_MODEL_DEFAULT,
+              messages: [
+                { role: 'system', content: hudInstructions },
+                { role: 'user', content: JSON.stringify(context) },
+              ],
+              max_tokens: 100,
+              temperature: 0.2,
+            }),
+          });
+          data = await response.json().catch(() => ({}));
+          summary = toFiveWordHudSummary(data?.choices?.[0]?.message?.content || '');
+        } else {
+          // OpenAI Responses API (existing path).
+          response = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: process.env.OPENAI_HUD_SUMMARY_MODEL || OPENAI_HUD_SUMMARY_MODEL_DEFAULT,
+              instructions: hudInstructions,
+              input: JSON.stringify(context),
+              reasoning: { effort: 'minimal' },
+              max_output_tokens: 100,
+            }),
+          });
+          data = await response.json().catch(() => ({}));
+          summary = toFiveWordHudSummary(extractOpenAiResponseText(data));
+        }
+        const providerLabel = useDeepSeek ? 'DeepSeek' : 'OpenAI';
         res.statusCode = response.ok && summary ? 200 : response.status || 502;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Cache-Control', 'no-store');
         res.end(JSON.stringify({
           summary: summary || null,
-          error: response.ok ? null : data.error?.message || 'OpenAI HUD summary request failed',
+          provider: providerLabel,
+          error: response.ok ? null : data.error?.message || `${providerLabel} HUD summary request failed`,
         }));
       } catch (error) {
         res.statusCode = 502;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ error: error?.message || 'OpenAI HUD summary request failed' }));
+        res.end(JSON.stringify({ error: error?.message || 'HUD summary request failed' }));
+      }
+    });
+
+    // ── DeepSeek status probe (client needs to know if the key is set) ──
+    middlewares.use('/api/deepseek/status', async (req, res) => {
+      const configured = Boolean(String(process.env.DEEPSEEK_API_KEY ?? '').trim());
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(JSON.stringify({
+        configured,
+        model: configured
+          ? (process.env.DEEPSEEK_COMMAND_MODEL || DEEPSEEK_COMMAND_MODEL_DEFAULT)
+          : null,
+      }));
+    });
+
+    // ── DeepSeek AI Command Proxy (/api/deepseek/chat) ──────────────────
+    // Accepts { messages, tools?, stream? } from the client-side chat panel.
+    // Forwards to DeepSeek's OpenAI-compatible /chat/completions endpoint.
+    // The 28 GEV_REALTIME_TOOLS are re-wrapped into OpenAI function-calling
+    // format if the client doesn't supply its own tools array.
+    middlewares.use('/api/deepseek/chat', async (req, res) => {
+      if (req.method !== 'POST') {
+        res.statusCode = 405;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Method not allowed' }));
+        return;
+      }
+
+      const dsKey = process.env.DEEPSEEK_API_KEY;
+      if (!String(dsKey ?? '').trim()) {
+        res.statusCode = 503;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'DEEPSEEK_API_KEY is not set' }));
+        return;
+      }
+
+      if (!enforceOptInRateLimit(deepseekRateLimiter(), req, res)) return;
+
+      try {
+        const body = await readRequestBody(req, 32 * 1024);
+        const payload = JSON.parse(body || '{}');
+        const messages = Array.isArray(payload.messages) ? payload.messages : [];
+        const wantStream = Boolean(payload.stream);
+
+        // Re-wrap GEV_REALTIME_TOOLS into the standard OpenAI function-calling
+        // format that DeepSeek expects: { type, function: { name, description, parameters } }.
+        const tools = (Array.isArray(payload.tools) && payload.tools.length > 0)
+          ? payload.tools
+          : GEV_REALTIME_TOOLS.map((t) => ({
+            type: 'function',
+            function: { name: t.name, description: t.description, parameters: t.parameters },
+          }));
+
+        const deepseekPayload = {
+          model: process.env.DEEPSEEK_COMMAND_MODEL || DEEPSEEK_COMMAND_MODEL_DEFAULT,
+          messages,
+          tools,
+          tool_choice: 'auto',
+          max_tokens: 2048,
+          temperature: 0.3,
+          stream: wantStream,
+        };
+
+        const upstream = await fetch(`${DEEPSEEK_API_BASE}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${dsKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(deepseekPayload),
+        });
+
+        if (wantStream) {
+          // SSE pass-through: pipe the upstream stream directly to the client.
+          res.statusCode = upstream.status;
+          res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-store');
+          res.setHeader('X-Accel-Buffering', 'no');
+          const reader = upstream.body?.getReader?.();
+          if (!reader) {
+            res.end();
+            return;
+          }
+          const pump = async () => {
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(value);
+            }
+            res.end();
+          };
+          pump().catch(() => res.end());
+        } else {
+          const data = await upstream.json().catch(() => ({}));
+          res.statusCode = upstream.status;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(JSON.stringify(data));
+        }
+      } catch (error) {
+        res.statusCode = 502;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: error?.message || 'DeepSeek chat request failed' }));
       }
     });
 

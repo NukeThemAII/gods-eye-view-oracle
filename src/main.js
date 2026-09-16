@@ -19,6 +19,7 @@ import { LAYER_STATE_REGISTRY } from './data/layerState.js';
 import { registerDataCredits } from './data/dataCredits.js';
 import { SceneDirector } from './scenes/director.js';
 import { initGevVoiceCommands } from './voice/gevRealtime.js';
+import { initDeepSeekChat } from './ai/deepseekChat.js';
 import { MapStackController } from './mapStackController.js';
 import { initAnnotations } from './annotations/index.js';
 import { initLogoGaze } from './logoGaze.js';
@@ -327,6 +328,17 @@ async function init() {
       requestRender: governorRequestRender,
     };
     window.__godsEyeView.voiceCommands = initGevVoiceCommands({ viewer, styleManager, dataManager, sceneDirector, annotations });
+
+    // DeepSeek AI Chat — independent of OpenAI voice. Creates its own action
+    // runner so both systems can operate simultaneously. The panel auto-hides
+    // if DEEPSEEK_API_KEY is not configured (status probe returns configured:false).
+    try {
+      const { createGevActionRunner } = await import('./voice/gevActions.js');
+      const dsRunner = createGevActionRunner({ viewer, styleManager, dataManager, sceneDirector, annotations });
+      window.__godsEyeView.deepseekChat = initDeepSeekChat(dsRunner);
+    } catch (dsError) {
+      console.warn('[DeepSeek] Chat panel initialization skipped:', dsError?.message || dsError);
+    }
 
   } catch (error) {
     console.error("God's Eye View initialization failed:", error);

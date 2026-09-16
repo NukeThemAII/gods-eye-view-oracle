@@ -1,5 +1,70 @@
 <div align="center">
 
+```text
+  _____           _ _         ______             _    ___                  
+ / ____|         | ( )       |  ____|           | |  / _ \                 
+| |  __  ___   __| |/ ___    | |__  _   _  ___  | | | | | |                
+| | |_ |/ _ \ / _` | / __|   |  __|| | | |/ _ \ | | | | | |                
+| |__| | (_) | (_| | \__ \   | |___| |_| |  __/ \ \_/ / |_|                
+ \_____|\___/ \__,_| |___/   |______\__, |\___|  \___/ (_)                 
+                                     __/ |                                 
+                                    |___/                                  
+             O R A C L E   E D I T I O N  (DeepSeek V4.1)                  
+```
+
+### A spy-satellite simulator in your browser — now powered by ultra-fast, uncensored DeepSeek Intelligence.
+
+Photorealistic 3D globe. Live aircraft, ships, satellites, earthquakes, traffic, and public cameras. **Hands-free voice control powered by DeepSeek Flash**.
+
+*No place left behind. No API budget blown.*
+
+<br/>
+
+[![Status](https://img.shields.io/badge/Status-Active_Fork-success)](#)
+[![DeepSeek](https://img.shields.io/badge/AI-DeepSeek_V4.1_Flash-blue)](#)
+[![Crypto](https://img.shields.io/badge/Roadmap-Crypto_%26_Stocks-purple)](#)
+
+</div>
+
+---
+
+## ⚡ What's New in Oracle Edition?
+
+This fork radically enhances the original God's Eye View by completely decoupling the AI architecture from OpenAI's expensive WebRTC endpoints, swapping in **DeepSeek-V4.1-Flash**.
+
+*   **💸 99.9% Cost Reduction**: Tool-calling and system prompts are automatically cached via DeepSeek. Hundreds of map commands cost fractions of a cent compared to $18/hr on OpenAI.
+*   **🎙️ Zero-Cost Voice Pipeline**: We use the browser-native `Web Speech API` (STT) and `speechSynthesis` (TTS) instead of paid voice endpoints. 
+*   **💻 Glass-Morphism Chat UI**: A brand new floating AI Chat Terminal (`⚡ DEEPSEEK AI`) sits right on your HUD. You can dictate, type, and read tool execution logs natively.
+*   **🧠 Dual-Provider HUD Fallbacks**: If you don't have an OpenAI key, the 5-word tactical HUD summary automatically falls back to DeepSeek.
+
+## 🚀 Upcoming Roadmap
+
+*   **📈 Live Crypto & Stock Intel**: Overlaying financial sentiment heatmaps, whale wallet transaction geolocations, and physical corporate asset tracking.
+*   **📡 Decentralized Node Visualizer**: See global blockchain node distributions live on the globe.
+
+---
+
+## 🛠️ How to Test It Out Right Now
+
+You can run this fork locally and test the new DeepSeek integration immediately!
+
+1. **Start the App**: If you are using Pinokio, just click **Start**. (Or run `npm run dev` in your terminal).
+2. **Add Your Key**: 
+   * Open the app in your browser.
+   * Click the **POWER UP ⚡** chip in the bottom-right corner to open Provider Settings.
+   * Paste your `DEEPSEEK_API_KEY` (Get one at [platform.deepseek.com](https://platform.deepseek.com/)) and hit **SAVE**.
+3. **Use the Oracle**:
+   * Look for the new `⚡ DEEPSEEK AI` button above the main dock.
+   * Click it to open the floating chat terminal.
+   * Click the Microphone icon (🎙) and say: *"Fly to Tokyo and show me CCTV cameras"* or *"Switch map to Noir mode"*. 
+   * Watch the AI execute the tools and narrate the results for free!
+
+---
+*(Below is the original documentation from the base repository)*
+---
+
+<div align="center">
+
 # 🌐 God's Eye View
 
 ### A spy-satellite simulator in your browser — then you realize the sources are public and the data is real.

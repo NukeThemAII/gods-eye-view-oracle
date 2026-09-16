@@ -353,6 +353,8 @@ const RIGHT_STACK_OBSTACLE_SELECTOR = [
   '#cesium-credits .cesium-credit-textContainer',
   '#command-dock',
   '#gev-voice-control',
+  '#gev-deepseek-chat',
+  '#ds-chat-toggle',
 ].join(', ');
 /** Display labels shown in the mini-status readout for each active style. */
 const STYLE_STATUS_LABELS = {
