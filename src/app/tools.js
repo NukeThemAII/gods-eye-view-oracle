@@ -6,6 +6,8 @@ import { initImageryBoxTool } from '../ui/imageryBoxTool.js';
 import { createRecentImageryPanel } from '../ui/recentImagery.js';
 import { initGevVoiceCommands } from '../voice/gevRealtime.js';
 import { installViews, isEmbeddedInline } from './embed.js';
+import { initDeepSeekChat } from '../ai/deepseekChat.js';
+import { createGevActionRunner } from '../voice/gevActions.js';
 import { installScopeMask, destroyScopeMask } from '../scopeMask.js';
 import {
   installRenderGovernor,
@@ -199,5 +201,34 @@ export function createApplicationTools({
       signal,
     }),
   );
+
+  // DeepSeek AI Chat — independent of OpenAI voice. Creates its own action
+  // runner so both systems can operate simultaneously. The panel auto-hides
+  // if DEEPSEEK_API_KEY is not configured (status probe returns configured:false).
+  try {
+    const dsRunner = createGevActionRunner({
+      floorServices: operations.surface.groundFloor,
+      annotationResolver: operations.annotationResolver,
+      searchNavigation: operations.searchAndFlyTo,
+      placeSearch,
+      viewer,
+      styleManager,
+      dataManager,
+      sceneDirector,
+      annotations,
+    });
+    const deepseekChat = initDeepSeekChat(dsRunner);
+    debug.deepseekChat = deepseekChat;
+    defer(() => {
+      deepseekChat.panel?.remove();
+      deepseekChat.toggle?.remove();
+    });
+  } catch (dsError) {
+    console.warn(
+      '[DeepSeek] Chat panel initialization skipped:',
+      dsError?.message || dsError,
+    );
+  }
+
   return { sceneDirector, annotations, voiceCommands };
 }
