@@ -20,6 +20,7 @@ import { trackBackfillProxies } from './aircraft/tracks.js';
 import { openAiRealtimeProxy } from './openai.js';
 import { deepseekProxy } from './deepseek.js';
 import { googlePlacesContextProxy } from './places.js';
+import { newsProxy } from './news.js';
 import { keySetupEndpoint } from '../standalone/key-setup.js';
 
 /** Construct the local provider plugins in their established order. */
@@ -47,6 +48,7 @@ function localProviderPlugins() {
     openAiRealtimeProxy(),
     deepseekProxy(),
     googlePlacesContextProxy(),
+    newsProxy(),
     keySetupEndpoint(),
   ];
 }
@@ -93,3 +95,5 @@ export { validMilitaryInstallationBox } from './military-installations/query.js'
 export { militaryInstallationFailureReason } from './military-installations/query.js';
 export { validRegionalPoint } from './regional/query.js';
 export { regionalBriefHasAnySource } from './regional/briefing.js';
+export { newsProxy } from './news.js';
+export { fetchGdeltGeoNews } from './news/gdelt.js';

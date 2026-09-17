@@ -61,6 +61,11 @@ export const ANALYST_LAYERS = {
     text: ['place'],
     flags: [],
   },
+  news: {
+    numeric: ['tone'],
+    text: ['title', 'location', 'url'],
+    flags: [],
+  },
 };
 
 const EARTH_R_KM = 6371;

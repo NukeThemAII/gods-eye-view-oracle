@@ -125,6 +125,13 @@ export const DATA_CREDITS = [
       '(location-matched article links; publisher terms apply)',
   },
   {
+    key: 'gdelt-news-map',
+    html:
+      'News heatmap: ' +
+      '<a href="https://www.gdeltproject.org/about.html" target="_blank" rel="noopener">GDELT Project</a> ' +
+      'GEO 2.0 (geocoded article links; publisher terms apply)',
+  },
+  {
     key: 'austin-cctv',
     html:
       'CCTV cameras &amp; frames: City of Austin, TX — ' +

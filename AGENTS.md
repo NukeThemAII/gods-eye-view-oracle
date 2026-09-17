@@ -1,156 +1,138 @@
-# God's Eye View: Multi-Provider AI & DeepSeek Integration Plan
+# God's Eye View — Oracle Edition
 
-## 1. Executive Summary & Problem Formulation
+**A self-hosted, open-source spatial-intelligence console.** Photorealistic 3D
+globe, live public feeds, and hands-free multi-provider AI. *No place left
+behind. No API budget blown.*
 
-God's Eye View currently integrates AI through two distinct pathways:
-1. **Realtime Voice Assistant (`GEV MIC`)**: An end-to-end multimodal speech-to-speech engine running over **WebRTC** (`api.openai.com/v1/realtime/calls`) using `gpt-realtime-2` or `gpt-realtime-2.1-mini`.
-2. **Tactical HUD Summary**: A concise 5-word real-time readout generated via OpenAI's `/v1/responses` REST endpoint.
-
-### The Problem
-* The current voice integration is locked to OpenAI's proprietary WebRTC Realtime API.
-* OpenAI Realtime audio tokens are expensive ($10–$64 per 1M tokens), resulting in approximately **$5.00 to $18.00 per active hour**.
-* Users with **DeepSeek API keys** (`api.deepseek.com`), local LLMs (Ollama), or budget cloud providers (Groq, Gemini, Xiaomi MiLM) cannot currently use their preferred models for map control and intelligence summaries.
-
----
-
-## 2. Cost Analysis & Provider Comparison
-
-### A. Cost Matrix (Per 1,000,000 Tokens, USD)
-
-| Provider & Model | Text Input | Cached Input | Text Output | Audio Input | Audio Output | Effective 1-Hr Voice/Interactive Session |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **OpenAI Realtime Standard** (`gpt-realtime-2`) | $4.00 | $0.40 | $24.00 | $32.00 | $64.00 | **~$6.00 – $18.00 / hr** |
-| **OpenAI Realtime Mini** (`gpt-realtime-2.1-mini`) | $0.60 | $0.06 | $2.40 | $10.00 | $20.00 | **~$1.80 – $5.40 / hr** |
-| **OpenAI Chat** (`gpt-4o-mini`) | $0.15 | $0.075 | $0.60 | N/A | N/A | **~$0.01 – $0.03 / hr** (with Web Speech) |
-| **DeepSeek-V4.1-Flash** (Off-Peak) | **$0.15** | **$0.003** | **$0.60** | N/A | N/A | **~$0.002 – $0.01 / hr** (with Web Speech) |
-| **DeepSeek-V4.1-Flash** (Peak) | $0.30 | $0.006 | $1.20 | N/A | N/A | ~$0.004 – $0.02 / hr |
-| **DeepSeek-V4-Pro** | Premium | Premium | Premium | N/A | N/A | Premium rate (with Web Speech) |
-| **Groq** (`llama-3.1-8b-instant`) | **$0.05** | N/A | **$0.08** | N/A | N/A | **<$0.005 / hr** (Free tier available) |
-| **Google Gemini 2.0 Flash** | $0.10 | $0.025 | $0.40 | $0.70 | $2.00 | **Free tier** / ~$0.02 / hr |
-| **Xiaomi MiLM / Open Weights** (Self-hosted) | $0.00 | $0.00 | $0.00 | N/A | N/A | **Hardware electricity only** |
+> Status (2026-09): DeepSeek-V4.1-Flash AI shipped (chat + HUD summary),
+> OpenAI Realtime voice retained, the "Director" modular architecture synced
+> from upstream `bilawalsidhu/gods-eye-view`, and **Phase A.1 shipped** — a
+> keyless GDELT news heatmap (proxy at `/api/gdelt/news` + a tone-colored
+> globe layer under `src/layers/news/`).
 
 ---
 
-### B. DeepSeek vs. OpenAI Cost Breakdown for God's Eye View
+## 1. Current State
 
-1. **System Prompt & Tool Schemas**:
-   * God's Eye View passes 28 tool definitions ([src/voice/gevActions.js](src/voice/gevActions.js)), totaling ~3,200 tokens.
-   * **DeepSeek's Context Caching**: Because the system prompt and tool definitions are identical across turns, DeepSeek automatically caches this prefix.
-   * Input cache hit cost on DeepSeek-V4.1-Flash (off-peak): **$0.003 / 1M tokens** (~$0.00001 per query).
-   * Over 100 commands: DeepSeek-V4.1-Flash costs **~$0.001** (a fraction of a cent), whereas OpenAI Realtime costs **~$3.00 to $6.00**.
+### Layers (live & bundled)
+- **Tracking**: aircraft (OpenSky → adsb.lol fallback), vessels (AISStream),
+  satellites (CelesTrak), rocket launches (Launch Library 2)
+- **Earth**: earthquakes (USGS), wildfires (NASA FIRMS), weather & atmospheric
+  effects (Open-Meteo)
+- **Ground**: CCTV (multi-city catalog), ALPR cameras (DeFlock/OSM), bikeshare
+  (GBFS), traffic (TomTom), transit, directions (OSRM), radio (Radio Browser)
+- **Infrastructure**: submarine cables (TeleGeography), datacenters, dams,
+  neighborhoods, Natural Earth regions, military installations (OSM)
+- **Intel**: cockpit "regional briefing" (Google News RSS → GDELT → Open-Meteo),
+  contacts/awareness proximity engine, annotations
+- **Authoring**: Director scenes, camera directions, data packs, sharing, and
+  timeline (incl. a Nepal evidence pack)
 
-2. **HUD Summary Operations**:
-   * HUD summary triggers periodically (camera position + active layers -> 5-word output).
-   * Context payload: ~120 tokens; Output: ~10 tokens.
-   * 1,000 HUD updates on OpenAI: ~$0.05 to $0.50.
-   * 1,000 HUD updates on DeepSeek-V4.1-Flash: **<$0.001** (essentially free).
+### AI & Voice
+- **OpenAI Realtime** WebRTC voice (`gpt-realtime-2` / `-2.1-mini`) — retained
+  but expensive.
+- **DeepSeek-V4.1-Flash** — default for text commands (tool-calling) and the
+  5-word HUD summary via `server/providers/deepseek.js`.
+- **Web Speech API** STT/TTS — the zero-cost voice path.
 
-### C. Best Suitable Model Selection
-Given the requirements of God's Eye View (fast JSON tool calling and rapid, small HUD summary generations), **`deepseek-flash`** (DeepSeek-V4.1-Flash) is the ideal default choice. Its blazing fast generation and ultra-cheap $0.003/1M cached token rate make it perfectly suited for high-frequency map interactions. We will use `deepseek-flash` as the default model, while leaving room for `deepseek-v4-pro` if deeper reasoning is requested by the user.
-
----
-
-## 3. Feasibility & Architecture Decision
-
-### Is It Worth Adding DeepSeek?
-**YES, overwhelmingly worth adding.**
-* **Cost Efficiency**: 99.9% cost reduction compared to OpenAI Realtime.
-* **Flexibility**: Enables users who do not have OpenAI credits or whose countries restrict OpenAI access to use AI features with their existing DeepSeek key.
-* **Architectural Realism**:
-  * DeepSeek does **NOT** support WebRTC speech-to-speech.
-  * Instead, we implement a **Decoupled Agent Architecture**:
-    * **Voice Input (STT)**: Browser-native Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) — runs client-side, zero latency, 0 cost.
-    * **LLM Engine & Tool Calling**: DeepSeek (`deepseek-flash`) via an OpenAI-compatible proxy (`/api/openai/hud-summary` and `/api/ai/command`).
-    * **Action Execution**: God's Eye View's existing `createGevActionRunner` (`src/voice/gevActions.js`).
-    * **Voice Output (TTS)**: Browser-native `window.speechSynthesis` (or text toast in HUD) — zero latency, 0 cost.
+### Architecture
+Modular: `server/providers/*` (server-side proxies, rate limiting, key
+isolation), `src/layers/*` (per-layer modules), `src/voice/*` (28-tool action
+runner), `src/director/*` (authoring), `src/data/*` (bundled datasets + credits).
 
 ---
 
-## 4. Implementation Plan & Milestones
+## 2. Guiding Principles & Guardrails
 
-```mermaid
-flowchart LR
-    subgraph UI ["Client Browser"]
-        Mic["Microphone / Web Speech API"]
-        TextBar["Command Input Bar"]
-        SpeechOut["speechSynthesis / HUD Toast"]
-        ActionRunner["createGevActionRunner (28 Tools)"]
-    end
-
-    subgraph Backend ["Vite Dev Server Proxy"]
-        KeyStore["pinokio/ENVIRONMENT\n(.env)"]
-        DeepSeekProxy["/api/deepseek/chat"]
-        HudProxy["/api/openai/hud-summary"]
-    end
-
-    subgraph External ["Provider APIs"]
-        DeepSeekAPI["https://api.deepseek.com\n(deepseek-flash)"]
-        OpenAIAPI["https://api.openai.com\n(Realtime WebRTC)"]
-    end
-
-    Mic --> TextBar
-    TextBar -->|User Prompt + Tools Schema| DeepSeekProxy
-    DeepSeekProxy -->|Bearer DEEPSEEK_API_KEY| DeepSeekAPI
-    DeepSeekAPI -->|Tool Calls + Reply| DeepSeekProxy
-    DeepSeekProxy -->|JSON Response| UI
-    UI --> ActionRunner
-    UI --> SpeechOut
-    HudProxy -->|If DEEPSEEK_API_KEY| DeepSeekAPI
-    HudProxy -->|If OPENAI_API_KEY| OpenAIAPI
-```
-
-### Milestone 1: Key Management & Configuration
-* **Files**:
-  * `src/keySetupCore.mjs`: Add `deepseek` provider entry (`DEEPSEEK_API_KEY`, title: "DEEPSEEK", description: "DeepSeek-V4.1-Flash for AI commands & HUD summary", url: "https://platform.deepseek.com/api_keys").
-  * `pinokio/ENVIRONMENT` & `.env.example`: Add `DEEPSEEK_API_KEY=` template.
-  * `scripts/setup-doctor.mjs` & `scripts/pinokio-environment.mjs`: Add `DEEPSEEK_API_KEY` to validated environment variables.
-
-### Milestone 2: DeepSeek-Powered HUD Summary
-* **Files**:
-  * `vite.config.js`:
-    * Check for `DEEPSEEK_API_KEY`. If present and `OPENAI_API_KEY` is absent (or if explicitly selected), route `/api/openai/hud-summary` to `https://api.deepseek.com/chat/completions` using model `deepseek-flash`.
-    * Formulate prompt for 5-word tactical summary.
-  * Unit tests in `src/hudSummaryResponse.test.mjs`.
-
-### Milestone 3: DeepSeek AI Command & Action Controller
-* **Files**:
-  * `vite.config.js`: Add proxy endpoint `/api/ai/command` or `/api/deepseek/chat` accepting `{ prompt, context, tools }`.
-  * `src/voice/gevActions.js`: Export `GEV_REALTIME_TOOLS` schema in standard OpenAI tool calling format (`{ type: "function", function: { ... } }`).
-  * `src/ai/deepseekController.js`:
-    * Handles user request, calls DeepSeek with tool specifications.
-    * Parses `tool_calls` returned by DeepSeek.
-    * Executes each tool sequentially via `createGevActionRunner`.
-    * Dispatches confirmation narration to `speechSynthesis` and HUD notifications.
-
-### Milestone 4: Command Dock UI Integration
-* **Files**:
-  * `index.html` & `src/ui.js`:
-    * Integrate an AI prompt shortcut (`/` or command input in `#command-dock`).
-    * Allow toggle between OpenAI Realtime Voice and DeepSeek Assistant in Settings.
-    * Wire Web Speech API mic dictation when in DeepSeek mode.
+1. **Keyless by default, opt-in keys.** The app runs with zero keys; every
+   provider is opt-in via `pinokio/ENVIRONMENT`.
+2. **Server-side key isolation.** Keys never reach client JavaScript.
+3. **Rate limiting.** Per-provider `GEV_RATELIMIT_*_PER_MIN` ceilings (app
+   guards, not billing caps).
+4. **Every source documented & attributed.** A new source must add an entry to
+   `DATA_SOURCES.md` (license + terms) **and** register a credit in
+   `src/data/dataCredits.js` so it surfaces in the in-app attribution popover.
+5. **License carve-outs.** Non-commercial datasets (TeleGeography CC BY-NC-SA,
+   Bhote Koshi CC BY-NC) stay bundled but flagged; commercial users must
+   remove/replace them.
 
 ---
 
-## 5. Security & Rate Limiting Guardrails
+## 3. Roadmap (prioritized)
 
-1. **Server-Side Key Isolation**: `DEEPSEEK_API_KEY` remains server-side only in `.env` / `pinokio/ENVIRONMENT`. It is never bundled into client JavaScript.
-2. **Rate Limiter**: Implement `GEV_RATELIMIT_DEEPSEEK_PER_MIN` (default 60 req/min) in `vite.config.js` following the pattern of `GEV_RATELIMIT_OPENAI_PER_MIN`.
-## 6. Oracle Edition & Upstream Sync (Completed)
+### Phase A — News & Events Intelligence (free / keyless first)
+1. **Global GDELT news heatmap** — promote DOC 2.0 + GKG + Events from the
+   cockpit fallback into a globe-wide geocoded layer: event codes, tone /
+   sentiment, article density. Keyless.
+2. **Conflict layer** — ACLED (free registration) + UCDP GED (free download),
+   geocoded conflict/protest events.
+3. **Disaster / hazard layer** — GDACS RSS (keyless) + NASA EONET (keyless).
+4. **"What's notable here"** — Wikipedia geosearch (keyless).
+5. **Optional keyed tiers** — MediaStack / NewsData.io / The Guardian Open
+   Platform.
 
-As of September 2026, the God's Eye View repository was officially forked into **God's Eye View: Oracle Edition** (`NukeThemAII/gods-eye-view-oracle`).
+### Phase B — Signal, Air & Maritime Intelligence
+1. **GPS jamming** — gpsjam.org daily interference polygons (keyless).
+2. **Internet outages** — Cloudflare Radar (free token) + IODA (Georgia Tech,
+   keyless).
+3. **FAA TFR airspace** + **NGA World Port Index / naval warnings** (free).
+4. **Dark-vessel detection** — Sentinel-1 SAR (Copernicus free) *[stretch]*.
 
-* **Milestones 1-4 COMPLETED**: The DeepSeek integration is fully operational, defaulting to `deepseek-flash` with overrides exposed in `pinokio/_ENVIRONMENT`.
-* **The "Director" Upstream Sync**: The fork was synced with the latest massive architectural refactor from `bilawalsidhu/gods-eye-view` (the "Director" update). 
-* **Refactor Adjustments**: To resolve merge conflicts from the monolithic-to-modular transition, our DeepSeek API proxy logic was successfully relocated from the monolithic `vite.config.js` into clean, dedicated modules at `server/providers/deepseek.js`. Chat styling was extracted to `src/ui/styles/deepseek-chat.css`.
+### Phase C — Internet & Crypto Node OSINT (keyless)
+1. **Bitnodes** (Bitcoin) + **Ethernodes** node geolocation.
+2. **PeeringDB** IXPs / datacenters.
+3. **CoinGecko** (free) markets + **Whale Alert** (free tier) large
+   transactions.
+
+### Phase D — Earth Observation & Hazards
+1. **OpenAQ** air quality; **Open-Meteo** lightning/AQ; **NOAA NHC** hurricane
+   tracks; **Blitzortung** lightning; **NASA GIBS** imagery tiles.
+
+### Phase E — Product & AI Capabilities (larger efforts)
+1. **Replay / history archive** — persist ADS-B/AIS positions locally + a
+   timeline scrubber (the differentiator vs. FR24/MarineTraffic paywalls).
+2. **Provenance & confidence scoring** — per-contact source agreement + fix age.
+3. **Evidence locker + case export** — SHA-256 chain-of-custody → HTML/PPTX
+   reports (extends the Director document/bundle work).
+4. **Photo geolocation (GEOINT)** — DeepSeek reasoning + Nominatim/Photon over
+   an uploaded image.
+5. **MCP server** — let any AI agent query the live feeds.
+6. **More providers** — Ollama (local), Groq, Gemini, Mistral, OpenRouter.
 
 ---
 
-## 7. Future Roadmap: Crypto & Financial Intelligence
+## 4. Multi-Provider AI Strategy
 
-With the DeepSeek integration stable and the new modular "Director" architecture in place, future development on the Oracle Edition will pivot toward financial intelligence overlay systems:
+- **Default: DeepSeek-V4.1-Flash.** Its context caching of the system prompt +
+  28 tool schemas makes tool-calling ≈ **$0.001 per 100 commands** (vs. ~$3–6
+  on OpenAI Realtime) — ~99.9% cheaper.
+- **Decoupled agent:** Web Speech STT → LLM tool-calling →
+  `createGevActionRunner` → speechSynthesis TTS.
+- **Fallbacks:** OpenAI Realtime for voice when configured; the HUD summary
+  falls back DeepSeek ↔ OpenAI.
+- **Rate limits:** `GEV_RATELIMIT_DEEPSEEK_PER_MIN` (default 60),
+  `GEV_RATELIMIT_OPENAI_PER_MIN`, `GEV_RATELIMIT_GOOGLE_PER_MIN`.
 
-1. **Live Crypto & Stock Intelligence**: Plotting financial data over geospatial regions (e.g., matching sentiment heatmaps or trading volumes to specific global markets).
-2. **Whale Tracking**: Visualizing large cryptocurrency transactions and tracing physical corporate assets globally.
-3. **Decentralized Node Visualizer**: Live mapping of global blockchain node distributions across the photorealistic globe.
+---
 
-These features will leverage the new `src/data/` layer architecture and custom `deepseek-flash` tool calling.
+## 5. Next Actions / Open Questions
+
+1. **Phase A.1 done** (keyless GDELT news heatmap: proxy + globe layer). Next
+   polish: a keyword/place search box in the layer row so the heatmap query is
+   steerable instead of fixed topical keywords.
+2. Wire one more keyless source (gpsjam or NASA EONET) end-to-end to prove the
+   "add a source" path.
+3. Decide the replay storage backend (SQLite vs. JSONL vs. `.gev-cache/`).
+
+---
+
+## 6. Completed History (legacy)
+
+- **DeepSeek integration (Milestones 1–4, shipped).** Decoupled
+  OpenAI-compatible chat + HUD summary via `server/providers/deepseek.js`,
+  Web Speech voice path, glass-morphism chat UI (`src/ai/*`,
+  `src/ui/styles/deepseek-chat.css`), and key setup in `pinokio/ENVIRONMENT`.
+- **"Director" upstream sync.** Modular refactor merged from
+  `bilawalsidhu/gods-eye-view`; the DeepSeek proxy was relocated from the
+  monolithic `vite.config.js` into `server/providers/`.
+- See `git log` and `CHANGELOG.md` for the full historical record.

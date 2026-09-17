@@ -829,6 +829,17 @@
     ],
     "external": ["cesium"]
   },
+  "news": {
+    "exports": ["./layers/news"],
+    "modules": [
+      "src/layers/news/index.js",
+      "src/layers/news/model.js",
+      "src/layers/news/source.js",
+      "src/layers/news/records.js"
+    ],
+    "external": ["cesium"]
+  },
+
   "fire-layer": {
     "exports": ["./layers/firms"],
     "modules": [
@@ -1425,6 +1436,12 @@
       "src/layers/earthquakes/index.js",
       "src/layers/earthquakes/model.js",
       "src/layers/earthquakes/source.js",
+      "src/app/layers/news.js",
+      "src/layers/news/index.js",
+      "src/layers/news/model.js",
+      "src/layers/news/source.js",
+      "src/layers/news/records.js",
+
       "src/layers/firms/anchors.js",
       "src/layers/firms/cards.js",
       "src/layers/firms/index.js",
@@ -1987,6 +2004,12 @@
       "src/layers/earthquakes/index.js",
       "src/layers/earthquakes/model.js",
       "src/layers/earthquakes/source.js",
+      "src/app/layers/news.js",
+      "src/layers/news/index.js",
+      "src/layers/news/model.js",
+      "src/layers/news/source.js",
+      "src/layers/news/records.js",
+
       "src/layers/firms/anchors.js",
       "src/layers/firms/cards.js",
       "src/layers/firms/index.js",
@@ -2457,6 +2480,12 @@
     ],
     "external": []
   },
+  "news-source": {
+    "exports": ["./layers/news/source"],
+    "modules": ["src/layers/news/records.js", "src/layers/news/source.js"],
+    "external": []
+  },
+
   "firms-source": {
     "exports": ["./layers/firms/source"],
     "modules": ["src/layers/firms/source.js"],
@@ -2502,6 +2531,9 @@
       "src/sources/reference.js",
       "src/layers/earthquakes/source.js",
       "src/layers/earthquakes/records.js",
+      "src/layers/news/source.js",
+      "src/layers/news/records.js",
+
       "src/layers/submarineCables/bundledSource.js"
     ],
     "external": []
