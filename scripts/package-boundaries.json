@@ -839,6 +839,16 @@
     ],
     "external": ["cesium"]
   },
+  "eonet": {
+    "exports": ["./layers/eonet"],
+    "modules": [
+      "src/layers/eonet/index.js",
+      "src/layers/eonet/model.js",
+      "src/layers/eonet/source.js",
+      "src/layers/eonet/records.js"
+    ],
+    "external": ["cesium"]
+  },
 
   "fire-layer": {
     "exports": ["./layers/firms"],
@@ -1441,6 +1451,11 @@
       "src/layers/news/model.js",
       "src/layers/news/source.js",
       "src/layers/news/records.js",
+      "src/app/layers/eonet.js",
+      "src/layers/eonet/index.js",
+      "src/layers/eonet/model.js",
+      "src/layers/eonet/source.js",
+      "src/layers/eonet/records.js",
 
       "src/layers/firms/anchors.js",
       "src/layers/firms/cards.js",
@@ -2009,6 +2024,11 @@
       "src/layers/news/model.js",
       "src/layers/news/source.js",
       "src/layers/news/records.js",
+      "src/app/layers/eonet.js",
+      "src/layers/eonet/index.js",
+      "src/layers/eonet/model.js",
+      "src/layers/eonet/source.js",
+      "src/layers/eonet/records.js",
 
       "src/layers/firms/anchors.js",
       "src/layers/firms/cards.js",
@@ -2485,6 +2505,11 @@
     "modules": ["src/layers/news/records.js", "src/layers/news/source.js"],
     "external": []
   },
+  "eonet-source": {
+    "exports": ["./layers/eonet/source"],
+    "modules": ["src/layers/eonet/records.js", "src/layers/eonet/source.js"],
+    "external": []
+  },
 
   "firms-source": {
     "exports": ["./layers/firms/source"],
@@ -2533,6 +2558,8 @@
       "src/layers/earthquakes/records.js",
       "src/layers/news/source.js",
       "src/layers/news/records.js",
+      "src/layers/eonet/source.js",
+      "src/layers/eonet/records.js",
 
       "src/layers/submarineCables/bundledSource.js"
     ],

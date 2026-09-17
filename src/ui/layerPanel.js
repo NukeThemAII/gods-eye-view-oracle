@@ -40,7 +40,7 @@ const PANEL_GROUPS = [
   },
   {
     label: 'Events',
-    ids: ['news', 'rocket-launches', 'earthquakes', 'local-firms'],
+    ids: ['news', 'eonet', 'rocket-launches', 'earthquakes', 'local-firms'],
   },
   {
     label: 'Utilities',
@@ -60,6 +60,7 @@ const PANEL_LABELS = {
   'alpr-cameras': 'Mapped ALPR Cameras',
   'local-datacenters': 'Data Centers',
   'local-firms': 'Active Fires',
+  eonet: 'Disaster Events',
   news: 'News Heatmap',
 };
 

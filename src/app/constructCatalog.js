@@ -18,6 +18,7 @@ import { createApplicationAwareness } from './layers/militaryAwareness.js';
 import { createApplicationFirms } from './layers/firms.js';
 import { createApplicationEarthquakes } from './layers/earthquakes.js';
 import { createApplicationNews } from './layers/news.js';
+import { createApplicationEonet } from './layers/eonet.js';
 import { createApplicationCables } from './layers/submarineCables.js';
 import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
@@ -45,6 +46,7 @@ const SOURCE_METHODS = Object.freeze({
   firms: ['getSnapshot'],
   earthquakes: ['getSnapshot'],
   news: ['getSnapshot'],
+  eonet: ['getSnapshot'],
   cables: ['fetch'],
 });
 
@@ -114,6 +116,7 @@ export function createApplicationCatalog({
         military,
         createApplicationEarthquakes({ source: sources.earthquakes }),
         createApplicationNews({ source: sources.news }),
+        createApplicationEonet({ source: sources.eonet }),
         createApplicationAlpr({ surface, source: sources.alpr }),
         satellites,
         createApplicationLaunches({ source: sources.launches, satellites }),

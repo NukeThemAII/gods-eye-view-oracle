@@ -66,6 +66,11 @@ export const ANALYST_LAYERS = {
     text: ['title', 'location', 'url'],
     flags: [],
   },
+  eonet: {
+    numeric: [],
+    text: ['title', 'category', 'url', 'description', 'status'],
+    flags: [],
+  },
 };
 
 const EARTH_R_KM = 6371;

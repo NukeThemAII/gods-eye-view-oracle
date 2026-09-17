@@ -132,6 +132,13 @@ export const DATA_CREDITS = [
       'GEO 2.0 (geocoded article links; publisher terms apply)',
   },
   {
+    key: 'eonet',
+    html:
+      'Disaster events: ' +
+      '<a href="https://eonet.gsfc.nasa.gov" target="_blank" rel="noopener">NASA EONET</a> ' +
+      '(Earth Observatory Natural Event Tracker)',
+  },
+  {
     key: 'austin-cctv',
     html:
       'CCTV cameras &amp; frames: City of Austin, TX — ' +

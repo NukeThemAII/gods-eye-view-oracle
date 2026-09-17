@@ -6,6 +6,32 @@
 
 ---
 
+## 2026-09-17 — EONET disaster/hazard layer (keyless)
+
+**Trigger:** continue development — wire the next keyless roadmap source
+end-to-end (NASA EONET, the disaster/hazard layer).
+
+**What changed (code):**
+- `src/data/eonetEvents.js` — pure EONET v3 model: status allow-list, URL
+  builder, latest-Point picker, category resolver, `normalizeEonetEvents`.
+- `server/providers/eonet.js` — `eonetProxy()` vite plugin exposing
+  `GET /api/eonet/events` (10-minute caching, 6-hour stale window, request
+  coalescing, per-client rate limiting) + `fetchEonetEvents`.
+- `src/layers/eonet/{records,source,model,index}.js` — client layer family:
+  category-colored point entities on a Cesium `CustomDataSource`.
+- `src/app/layers/eonet.js` — app-layer wrapper.
+- Registered the keyless `eonet` source, catalog entry, share-link token
+  (`o`), analyst schema, Events-group UI entry, and a `dataCredits.js` +
+  `DATA_SOURCES.md` attribution row.
+
+**Validation:** 14 new tests (server model + proxy; client layer) pass;
+import-direction and package-boundary checks green.
+
+**Not changed:** no query fan-out — EONET returns the full event list in one
+call, so the proxy cache is keyed only by status.
+
+---
+
 ## 2026-09-17 — Phase A.1 (client): visible GDELT news heatmap layer
 
 **Trigger:** "build the visible client-side layer… full auto."
