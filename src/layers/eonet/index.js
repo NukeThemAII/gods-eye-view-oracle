@@ -119,7 +119,10 @@ export function createEonetLayer({ source } = {}) {
           return false;
         console.warn('[Data:Eonet] Fetch error:', error);
         _lastError = error?.message || 'Hazard source unavailable';
-        return false;
+        // A transient source outage degrades the layer (stays enabled, shows
+        // the error, retries next refresh) — only `false` rejects the lifecycle
+        // and rolls the toggle back off.
+        return true;
       } finally {
         if (_request === request) _request = null;
       }

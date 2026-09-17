@@ -137,3 +137,29 @@ test('news layer lifecycle renders entities and reports stats', async () => {
     layer.destroy(viewer);
   }
 });
+
+test('news layer degrades (stays enabled) instead of rejecting on a source error', async () => {
+  const dataSources = [];
+  const viewer = {
+    dataSources: { add(s) { dataSources.push(s); }, remove() { return true; } },
+  };
+  const source = {
+    getSnapshot: async () => {
+      throw new Error('GDELT HTTP 503');
+    },
+  };
+  const layer = createNewsLayer({ source });
+  try {
+    layer.init(viewer);
+    layer.enable(viewer);
+    assert.equal(
+      await layer.update(viewer),
+      true,
+      'a transient source error degrades instead of rejecting the lifecycle',
+    );
+    assert.equal(layer.getStats().error, 'GDELT HTTP 503');
+    assert.equal(layer.getStats().count, 0);
+  } finally {
+    layer.destroy(viewer);
+  }
+});
