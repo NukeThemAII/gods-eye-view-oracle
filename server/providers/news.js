@@ -23,6 +23,10 @@ import {
 const GDELT_NEWS_CACHE_MS = 5 * 60_000;
 const GDELT_NEWS_STALE_MS = 60 * 60_000;
 const GDELT_NEWS_MAX_CACHE = 200;
+// GDELT's free tier asks for at most one request every 5 seconds; exceeding it
+// returns a 429. The news source fans out across several keywords, so the proxy
+// must space upstream fetches to stay under that ceiling.
+const GDELT_UPSTREAM_MIN_INTERVAL_MS = 5_000;
 
 function gdeltNewsCacheKey({ query, timespan, maxpoints }) {
   return `${query}|${timespan}|${maxpoints}`;
@@ -45,7 +49,10 @@ function trimGdeltNewsCache(cache) {
  *   maxpoints  (optional) upstream point budget, 1..1000 (default 250)
  *   bbox       (optional) `west,south,east,north` viewport filter
  */
-function newsProxy({ fetchImpl } = {}) {
+function newsProxy({
+  fetchImpl,
+  upstreamMinIntervalMs = GDELT_UPSTREAM_MIN_INTERVAL_MS,
+} = {}) {
   const cache = new Map();
   const inFlight = new Map();
   const rateLimiter = makeRateLimiter({
@@ -53,6 +60,25 @@ function newsProxy({ fetchImpl } = {}) {
     max: 30,
     globalMax: 240,
   });
+
+  // Serialize and space upstream GDELT fetches so the multi-keyword fan-out
+  // never fires two requests inside the allowed interval. The queue keeps the
+  // chain alive past a rejection so one failed query can't deadlock the next.
+  let upstreamAt = 0;
+  let upstreamQueue = Promise.resolve();
+  const scheduleUpstream = (task) => {
+    const run = upstreamQueue.then(async () => {
+      const wait = upstreamAt + upstreamMinIntervalMs - Date.now();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+      upstreamAt = Date.now();
+      return task();
+    });
+    upstreamQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  };
 
   function install(middlewares) {
     middlewares.use('/api/gdelt/news', async (req, res) => {
@@ -124,12 +150,14 @@ function newsProxy({ fetchImpl } = {}) {
       }
 
       const refresh = coalesceProxyRequest(inFlight, key, async () => {
-        const records = await fetchGdeltGeoNews({
-          query,
-          timespan,
-          maxpoints,
-          fetchImpl,
-        });
+        const records = await scheduleUpstream(() =>
+          fetchGdeltGeoNews({
+            query,
+            timespan,
+            maxpoints,
+            fetchImpl,
+          }),
+        );
         const entry = {
           records,
           cachedAt: Date.now(),

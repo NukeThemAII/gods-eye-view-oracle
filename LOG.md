@@ -6,7 +6,38 @@
 
 ---
 
+## 2026-09-17 — News heatmap resilience (GDELT outage handling)
+
+**Trigger:** "news heatmap unavailable" — GDELT GEO 2.0 was intermittently
+returning 404/429/timeout, and the layer snapped back off.
+
+**Root causes (verified against the live API):**
+- GDELT's free tier rate-limits to **one request every 5 seconds**; the
+  news source's 4-keyword fan-out (`war`/`disaster`/`protest`/`election`)
+  fired back-to-back and tripped the 429.
+- `update()` returned `false` on a source error, which the lifecycle treats
+  as a rejection and rolls the toggle back off (lifecycle.js:994).
+
+**What changed:**
+- `src/layers/news/index.js` + `src/layers/eonet/index.js` — on a transient
+  source error, return `true` (degrade, stay enabled, show the error, retry
+  next refresh) instead of `false` (roll back). Regression tests added.
+- `server/providers/news.js` — an upstream throttle spaces GDELT fetches
+  ≥5s apart (injectable `upstreamMinIntervalMs` for tests) so the fan-out
+  no longer exceeds GDELT's rate limit.
+- `src/data/gdeltNews.test.mjs` — throttle spacing test.
+
+**Not changed:** `earthquakes` keeps its intentional, tested `return false`
+(roll back) contract — changing it is a separate design decision.
+
+**Validation:** 23 news/gdelt tests pass; import-direction and
+package-boundary checks green; prettier clean (pre-existing `deepseek.js`
+still flagged).
+
+---
+
 ## 2026-09-17 — EONET disaster/hazard layer (keyless)
+
 
 **Trigger:** continue development — wire the next keyless roadmap source
 end-to-end (NASA EONET, the disaster/hazard layer).

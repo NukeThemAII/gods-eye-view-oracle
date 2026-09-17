@@ -278,3 +278,47 @@ test('gdelt news handler validates input, serves, caches, and filters to bbox', 
   const boxedOut = await call('/api/gdelt/news?query=rome&bbox=80,0,90,10');
   assert.equal(boxedOut.body.count, 0);
 });
+
+test('gdelt news proxy spaces upstream fetches to respect the 5s rate limit', async () => {
+  const upstreamCalls = [];
+  const plugin = newsProxy({
+    upstreamMinIntervalMs: 50,
+    fetchImpl: async () => {
+      upstreamCalls.push(Date.now());
+      return new Response(JSON.stringify({ features: [feature()] }));
+    },
+  });
+  const routes = [];
+  plugin.configureServer({
+    middlewares: {
+      use(path, handler) {
+        routes.push({ path, handler });
+      },
+    },
+  });
+
+  const call = (url) =>
+    new Promise((resolve) => {
+      const res = {
+        writeHead(status, headers) {
+          this.status = status;
+          this.headers = headers;
+        },
+        end(body) {
+          resolve({ status: this.status, body: JSON.parse(body) });
+        },
+      };
+      routes[0].handler(
+        { method: 'GET', url, socket: { remoteAddress: '127.0.0.1' } },
+        res,
+      );
+    });
+
+  await call('/api/gdelt/news?query=war');
+  await call('/api/gdelt/news?query=disaster');
+  assert.equal(upstreamCalls.length, 2);
+  assert.ok(
+    upstreamCalls[1] - upstreamCalls[0] >= 45,
+    `upstream calls spaced ${upstreamCalls[1] - upstreamCalls[0]}ms apart`,
+  );
+});
