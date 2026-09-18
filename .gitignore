@@ -21,6 +21,7 @@ qa-artifacts/
 3d-models/
 pinokio/ENVIRONMENT
 pinokio/.installed
+.github_agent_auth.json
 
 # Transient: a release interrupted mid-assembly (npm run changelog recovers it)
 changelog.d/.assembling/
