@@ -1,5 +1,5 @@
-/* ── DeepSeek AI Chat Panel ──────────────────── */
-#gev-deepseek-chat {
+/* ── AI Chat Panel (DeepSeek / MiMo; classes keep the original ds- prefix) ── */
+#gev-ai-chat {
   position: fixed;
   right: 36px;
   bottom: 100px;
@@ -23,15 +23,17 @@
   pointer-events: auto;
   opacity: 0;
   transform: translateY(12px) scale(0.97);
-  transition: opacity var(--transition-smooth), transform var(--transition-smooth);
+  transition:
+    opacity var(--transition-smooth),
+    transform var(--transition-smooth);
 }
 
-#gev-deepseek-chat.open {
+#gev-ai-chat.open {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
 
-#gev-deepseek-chat:not(.open) {
+#gev-ai-chat:not(.open) {
   pointer-events: none;
 }
 
@@ -62,6 +64,27 @@
   text-transform: uppercase;
 }
 
+.ds-chat-provider {
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  background: transparent;
+  padding: 2px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ds-chat-provider option {
+  background: #10141a;
+}
+
+.ds-chat-provider[hidden] {
+  display: none;
+}
+
 .ds-chat-close-btn {
   width: 24px;
   height: 24px;
@@ -74,7 +97,9 @@
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .ds-chat-close-btn:hover {
@@ -113,8 +138,14 @@
 }
 
 @keyframes ds-msg-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .ds-chat-msg.user {
@@ -209,7 +240,9 @@
   color: var(--accent);
   font-size: 14px;
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 #ds-chat-send:hover {
@@ -235,7 +268,10 @@
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .ds-chat-mic-btn:hover {
@@ -251,8 +287,13 @@
 }
 
 @keyframes ds-mic-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(92, 255, 198, 0.3); }
-  50% { box-shadow: 0 0 0 6px rgba(92, 255, 198, 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(92, 255, 198, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(92, 255, 198, 0);
+  }
 }
 
 .ds-chat-thinking {
@@ -271,12 +312,24 @@
   animation: ds-think-bounce 1.4s ease-in-out infinite;
 }
 
-.ds-chat-thinking span:nth-child(2) { animation-delay: 0.2s; }
-.ds-chat-thinking span:nth-child(3) { animation-delay: 0.4s; }
+.ds-chat-thinking span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.ds-chat-thinking span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes ds-think-bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
-  40% { transform: scale(1); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Toggle button in command dock */
@@ -301,13 +354,18 @@
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  transition: color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 #ds-chat-toggle:hover {
   color: var(--accent);
   border-color: rgba(0, 212, 255, 0.3);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 12px rgba(0, 212, 255, 0.12);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 12px rgba(0, 212, 255, 0.12);
 }
 
 #ds-chat-toggle.active {
@@ -321,12 +379,12 @@
 
 /* Hide DeepSeek chat elements when DEEPSEEK_API_KEY is not configured */
 #ds-chat-toggle.ds-unconfigured,
-#gev-deepseek-chat.ds-unconfigured {
+#gev-ai-chat.ds-unconfigured {
   display: none;
 }
 
 @media (max-width: 600px) {
-  #gev-deepseek-chat {
+  #gev-ai-chat {
     right: 8px;
     left: 8px;
     bottom: 80px;

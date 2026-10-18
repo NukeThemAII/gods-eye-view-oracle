@@ -1,8 +1,9 @@
 /**
- * DeepSeek AI Chat Controller — client-side conversation engine.
+ * AI Chat Controller — client-side conversation engine.
  *
- * Manages a persistent conversation with DeepSeek via the server-side proxy
- * at /api/deepseek/chat. When DeepSeek returns tool_calls, the controller
+ * Manages a persistent conversation with an OpenAI-compatible provider
+ * (DeepSeek or MiMo) via the server-side proxy at /api/ai/chat. When the
+ * model returns tool_calls, the controller
  * executes them against the existing GEV action runner (the same 28 tools
  * used by OpenAI Realtime voice) and feeds results back for a follow-up
  * completion. Browser-native Web Speech API provides zero-cost STT/TTS.
@@ -12,8 +13,8 @@
 
 /** @typedef {{ role: string, content: string|null, tool_calls?: any[], tool_call_id?: string }} ChatMessage */
 
-const DEEPSEEK_CHAT_API = '/api/deepseek/chat';
-const DEEPSEEK_STATUS_API = '/api/deepseek/status';
+const AI_CHAT_API = '/api/ai/chat';
+const AI_CHAT_STATUS_API = '/api/ai/status';
 
 const SYSTEM_PROMPT = [
   "You are GEV AI, a concise AI controller for a Cesium geospatial app called God's Eye View.",
@@ -27,13 +28,13 @@ const SYSTEM_PROMPT = [
 ].join('\n');
 
 /**
- * Create a DeepSeek chat controller bound to a GEV action runner.
+ * Create an AI chat controller bound to a GEV action runner.
  *
  * @param {Function} actionRunner - The `runGevAction(name, args)` function from
  *   `createGevActionRunner`. May be null if voice tools are not yet initialized.
  * @returns {object} Controller API.
  */
-export function createDeepSeekController(actionRunner) {
+export function createAiChatController(actionRunner) {
   /** @type {ChatMessage[]} */
   const history = [{ role: 'system', content: SYSTEM_PROMPT }];
 
@@ -43,26 +44,37 @@ export function createDeepSeekController(actionRunner) {
   /** @type {boolean} */
   let busy = false;
 
-  /** @type {{ configured: boolean, model: string|null }|null} */
+  /** @type {{ configured: boolean, defaultProvider: string|null, providers: { id: string, label: string, model: string }[] }|null} */
   let cachedStatus = null;
+
+  /** Provider id sent with each request; null lets the server pick its default. */
+  let provider = null;
 
   function emit(event, data) {
     for (const fn of listeners) {
-      try { fn(event, data); } catch { /* listener errors are silently dropped */ }
+      try {
+        fn(event, data);
+      } catch {
+        /* listener errors are silently dropped */
+      }
     }
   }
 
   /**
-   * Check if the DeepSeek backend is configured.
-   * @returns {Promise<{ configured: boolean, model: string|null }>}
+   * Check which AI chat providers the backend has keys for.
+   * @returns {Promise<{ configured: boolean, defaultProvider: string|null, providers: { id: string, label: string, model: string }[] }>}
    */
   async function checkStatus() {
     if (cachedStatus) return cachedStatus;
     try {
-      const res = await fetch(DEEPSEEK_STATUS_API);
+      const res = await fetch(AI_CHAT_STATUS_API);
       cachedStatus = await res.json();
     } catch {
-      cachedStatus = { configured: false, model: null };
+      cachedStatus = {
+        configured: false,
+        defaultProvider: null,
+        providers: [],
+      };
     }
     return cachedStatus;
   }
@@ -73,7 +85,7 @@ export function createDeepSeekController(actionRunner) {
    * @returns {Promise<string>} The assistant's final text response.
    */
   async function send(userText) {
-    if (busy) throw new Error('DeepSeek controller is busy');
+    if (busy) throw new Error('AI chat controller is busy');
     if (!userText?.trim()) return '';
     busy = true;
 
@@ -92,8 +104,8 @@ export function createDeepSeekController(actionRunner) {
   }
 
   /**
-   * Core completion loop: call DeepSeek, execute any tool_calls, feed results
-   * back, repeat until DeepSeek returns a plain text response (finish_reason=stop).
+   * Core completion loop: call the provider, execute any tool_calls, feed
+   * results back, repeat until the model returns a plain text response (finish_reason=stop).
    * Guards against runaway loops with a max-iterations cap.
    */
   async function completionLoop() {
@@ -102,15 +114,17 @@ export function createDeepSeekController(actionRunner) {
 
     while (round < MAX_TOOL_ROUNDS) {
       round++;
-      const response = await fetch(DEEPSEEK_CHAT_API, {
+      const response = await fetch(AI_CHAT_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, provider }),
       });
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        const msg = err.error || `DeepSeek error ${response.status}`;
+        const upstreamError =
+          typeof err.error === 'string' ? err.error : err.error?.message;
+        const msg = upstreamError || `AI chat error ${response.status}`;
         emit('error', msg);
         return `Error: ${msg}`;
       }
@@ -118,8 +132,8 @@ export function createDeepSeekController(actionRunner) {
       const data = await response.json();
       const choice = data.choices?.[0];
       if (!choice) {
-        emit('error', 'No response from DeepSeek');
-        return 'Error: No response from DeepSeek';
+        emit('error', 'No response from the AI provider');
+        return 'Error: No response from the AI provider';
       }
 
       const assistantMessage = choice.message;
@@ -143,7 +157,7 @@ export function createDeepSeekController(actionRunner) {
           history.push(toolMessage);
           emit('tool_result', { call, result: toolResult });
         }
-        // Continue the loop — DeepSeek needs to see the tool results.
+        // Continue the loop — the model needs to see the tool results.
         continue;
       }
 
@@ -217,9 +231,23 @@ export function createDeepSeekController(actionRunner) {
     reset,
     checkStatus,
     /** @param {Function} fn */
-    on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
-    get busy() { return busy; },
-    get messageCount() { return history.length; },
+    on: (fn) => {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    get busy() {
+      return busy;
+    },
+    get provider() {
+      return provider;
+    },
+    /** @param {string|null} id */
+    set provider(id) {
+      provider = id || null;
+    },
+    get messageCount() {
+      return history.length;
+    },
   };
 }
 
@@ -231,8 +259,9 @@ export function createDeepSeekController(actionRunner) {
  * @returns {{ start: () => void, stop: () => void, isListening: () => boolean }|null}
  */
 export function createSpeechInput(onResult) {
-  const SpeechRecognition = typeof window !== 'undefined'
-    && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const SpeechRecognition =
+    typeof window !== 'undefined' &&
+    (window.SpeechRecognition || window.webkitSpeechRecognition);
   if (!SpeechRecognition) return null;
 
   const recognition = new SpeechRecognition();
@@ -248,8 +277,12 @@ export function createSpeechInput(onResult) {
     if (transcript) onResult(transcript);
   });
 
-  recognition.addEventListener('end', () => { listening = false; });
-  recognition.addEventListener('error', () => { listening = false; });
+  recognition.addEventListener('end', () => {
+    listening = false;
+  });
+  recognition.addEventListener('error', () => {
+    listening = false;
+  });
 
   return {
     start() {

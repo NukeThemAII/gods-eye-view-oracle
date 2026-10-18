@@ -13,6 +13,7 @@ module.exports = {
           CESIUM_ION_TOKEN: '{{env.CESIUM_ION_TOKEN || ""}}',
           OPENAI_API_KEY: '{{env.OPENAI_API_KEY || ""}}',
           DEEPSEEK_API_KEY: '{{env.DEEPSEEK_API_KEY || ""}}',
+          MIMO_API_KEY: '{{env.MIMO_API_KEY || ""}}',
           AISSTREAM_API_KEY: '{{env.AISSTREAM_API_KEY || ""}}',
           FIRMS_MAP_KEY: '{{env.FIRMS_MAP_KEY || ""}}',
           TOMTOM_API_KEY: '{{env.TOMTOM_API_KEY || ""}}',
@@ -24,6 +25,9 @@ module.exports = {
           PINOKIO_SHARE_VAR: '{{env.PINOKIO_SHARE_VAR || "__gev_sharing_disabled__"}}',
           GEV_RATELIMIT_OPENAI_PER_MIN: '{{env.GEV_RATELIMIT_OPENAI_PER_MIN || ""}}',
           GEV_RATELIMIT_GOOGLE_PER_MIN: '{{env.GEV_RATELIMIT_GOOGLE_PER_MIN || ""}}',
+          GEV_RATELIMIT_AI_CHAT_PER_MIN: '{{env.GEV_RATELIMIT_AI_CHAT_PER_MIN || ""}}',
+          MIMO_API_BASE: '{{env.MIMO_API_BASE || ""}}',
+          AI_CHAT_PROVIDER: '{{env.AI_CHAT_PROVIDER || ""}}',
         },
         message: 'node scripts/pinokio-start.mjs',
         on: [{

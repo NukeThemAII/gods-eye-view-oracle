@@ -5,7 +5,7 @@ import {
 import { enforceRateLimit, openAiRateLimiter } from './rate-limit.js';
 import { readRequestBody } from '../common/request.js';
 import { OPENAI_HUD_SUMMARY_MODEL_DEFAULT } from './constants.js';
-import { handleDeepseekHudSummary } from '../deepseek.js';
+import { aiChatConfigured, handleAiChatHudSummary } from '../ai-chat.js';
 
 function extractOpenAiResponseText(data) {
   if (typeof data?.output_text === 'string' && data.output_text.trim()) {
@@ -38,10 +38,9 @@ async function handleHudSummary(req, res) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  const deepseekKey = process.env.DEEPSEEK_API_KEY;
-  // DeepSeek fallback: no OpenAI key configured but a DeepSeek key is present.
-  if (!String(apiKey ?? '').trim() && String(deepseekKey ?? '').trim()) {
-    return handleDeepseekHudSummary(req, res);
+  // AI chat fallback: no OpenAI key configured but a chat provider key is.
+  if (!String(apiKey ?? '').trim() && aiChatConfigured()) {
+    return handleAiChatHudSummary(req, res);
   }
 
   const keyless = keylessHudSummaryResponse(apiKey);

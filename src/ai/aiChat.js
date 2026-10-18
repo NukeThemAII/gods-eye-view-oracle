@@ -1,53 +1,82 @@
 /**
- * DeepSeek AI Chat Panel — the floating chat window UI.
+ * AI Chat Panel — the floating chat window UI.
  *
- * Renders a glass-morphism chat panel that connects to the DeepSeek controller.
+ * Renders a glass-morphism chat panel that connects to the AI chat controller.
  * Supports text input, Web Speech API mic dictation, and displays assistant
  * responses, tool-call executions, and error states with tasteful animations.
  *
  * Injected at runtime alongside the existing voice-control pill, positioned
- * above it in the z-stack. Visibility is gated on DEEPSEEK_API_KEY being
- * configured (probed via /api/deepseek/status on first load).
+ * above it in the z-stack. Visibility is gated on at least one provider key
+ * (DEEPSEEK_API_KEY or MIMO_API_KEY) being configured (probed via
+ * /api/ai/status on first load). With more than one, the header shows a
+ * provider picker whose choice is remembered per browser.
  */
 
-import { createDeepSeekController, createSpeechInput } from './deepseekController.js';
+import { t } from '../i18n/index.js';
+import {
+  createAiChatController,
+  createSpeechInput,
+} from './aiChatController.js';
+
+const PROVIDER_STORAGE_KEY = 'gev.aiChat.provider';
+
+function readStoredProvider() {
+  try {
+    return window.localStorage.getItem(PROVIDER_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeProvider(id) {
+  try {
+    window.localStorage.setItem(PROVIDER_STORAGE_KEY, id);
+  } catch {
+    /* storage unavailable — the choice lasts for this page only */
+  }
+}
 
 /**
- * Boot the DeepSeek chat panel and toggle button.
+ * Boot the AI chat panel and toggle button.
  *
  * @param {Function|null} actionRunner - The `runGevAction(name, args)` function
  *   from `createGevActionRunner`. Null until voice tools are initialized; can be
  *   patched later via the returned `setActionRunner`.
  * @returns {{ panel: HTMLElement, toggle: HTMLElement, setActionRunner: (fn: Function) => void }}
  */
-export function initDeepSeekChat(actionRunner = null) {
-  let controller = createDeepSeekController(actionRunner);
+export function initAiChat(actionRunner = null) {
+  let controller = createAiChatController(actionRunner);
+  /** @type {{ id: string, label: string, model: string }[]} */
+  let providers = [];
   let speechInput = null;
 
   // ── Toggle button (always present, hidden when unconfigured) ──────────
   const toggle = document.createElement('button');
   toggle.id = 'ds-chat-toggle';
   toggle.classList.add('ds-unconfigured'); // hidden until status probe
-  toggle.innerHTML = `<span class="ds-toggle-icon">⚡</span> DEEPSEEK AI`;
-  toggle.title = 'Open DeepSeek AI Chat';
+  // i18n-ignore: product name and icon
+  toggle.innerHTML = `<span class="ds-toggle-icon" aria-hidden="true">⚡</span> <span translate="no">GEV AI</span>`;
+  toggle.title = t('Open GEV AI Chat');
 
   // ── Chat panel ────────────────────────────────────────────────────────
   const panel = document.createElement('div');
-  panel.id = 'gev-deepseek-chat';
+  panel.id = 'gev-ai-chat';
   panel.classList.add('ds-unconfigured');
+  // i18n-ignore: product name and icon glyphs; copy below goes through t()
   panel.innerHTML = `
     <div class="ds-chat-header">
-      <span class="ds-chat-header-title">DEEPSEEK AI</span>
-      <span class="ds-chat-model-badge" id="ds-model-badge">—</span>
-      <button class="ds-chat-close-btn" title="Close chat" aria-label="Close DeepSeek chat">✕</button>
+      <span class="ds-chat-header-title" translate="no">GEV AI</span>
+      <select class="ds-chat-provider" id="ds-provider" aria-label="${t('AI provider')}" hidden></select>
+      <span class="ds-chat-model-badge" id="ds-model-badge" translate="no">—</span>
+      <button class="ds-chat-close-btn" title="${t('Close chat')}" aria-label="${t('Close AI chat')}"><span aria-hidden="true">✕</span></button>
     </div>
     <div class="ds-chat-messages" id="ds-chat-messages">
-      <div class="ds-chat-msg system">READY — TYPE A COMMAND OR ASK A QUESTION</div>
+      <div class="ds-chat-msg system">${t('READY — TYPE A COMMAND OR ASK A QUESTION')}</div>
     </div>
     <div class="ds-chat-input-row">
-      <button class="ds-chat-mic-btn" id="ds-chat-mic" title="Voice input (Web Speech API)" aria-label="Voice input">🎙</button>
-      <input type="text" id="ds-chat-input" placeholder="Ask GEV AI anything..." autocomplete="off" spellcheck="false" />
-      <button id="ds-chat-send" title="Send message" aria-label="Send">▶</button>
+      <button class="ds-chat-mic-btn" id="ds-chat-mic" title="${t('Voice input (Web Speech API)')}" aria-label="${t('Voice input')}"><span aria-hidden="true">🎙</span></button>
+      <input type="text" id="ds-chat-input" placeholder="${t('Ask GEV AI anything...')}" autocomplete="off" spellcheck="false" />
+      <button id="ds-chat-send" title="${t('Send message')}" aria-label="${t('Send')}"><span aria-hidden="true">▶</span></button>
     </div>
   `;
 
@@ -58,6 +87,7 @@ export function initDeepSeekChat(actionRunner = null) {
   const micBtn = panel.querySelector('#ds-chat-mic');
   const closeBtn = panel.querySelector('.ds-chat-close-btn');
   const modelBadge = panel.querySelector('#ds-model-badge');
+  const providerSelect = panel.querySelector('#ds-provider');
 
   // ── Toggle behavior ───────────────────────────────────────────────────
   let isOpen = false;
@@ -139,7 +169,11 @@ export function initDeepSeekChat(actionRunner = null) {
       case 'tool_result': {
         const ok = data.result?.ok !== false;
         const label = ok ? '✓' : '✗';
-        const detail = data.result?.error || data.result?.action || data.call.function?.name || '';
+        const detail =
+          data.result?.error ||
+          data.result?.action ||
+          data.call.function?.name ||
+          '';
         appendMessage('tool-result', `${label} ${detail}`);
         break;
       }
@@ -149,12 +183,12 @@ export function initDeepSeekChat(actionRunner = null) {
         break;
       case 'usage':
         if (typeof console !== 'undefined') {
-          console.debug('[DeepSeek] tokens:', data);
+          console.debug('[AI chat] tokens:', controller.provider, data);
         }
         break;
       case 'reset':
         messagesEl.innerHTML = '';
-        appendMessage('system', 'CONVERSATION RESET');
+        appendMessage('system', t('CONVERSATION RESET'));
         break;
     }
   }
@@ -206,15 +240,40 @@ export function initDeepSeekChat(actionRunner = null) {
     micBtn.style.display = 'none';
   }
 
-  // ── Status probe (gate visibility on DEEPSEEK_API_KEY) ────────────────
+  // ── Provider selection ────────────────────────────────────────────────
+  function selectProvider(id) {
+    const selected = providers.find((entry) => entry.id === id) ?? providers[0];
+    if (!selected) return;
+    controller.provider = selected.id;
+    providerSelect.value = selected.id;
+    modelBadge.textContent = selected.model.toUpperCase();
+  }
+
+  providerSelect.addEventListener('change', () => {
+    selectProvider(providerSelect.value);
+    storeProvider(providerSelect.value);
+    appendMessage(
+      'system',
+      t('PROVIDER — {name}', {
+        name: providerSelect.selectedOptions[0]?.textContent ?? '',
+      }),
+    );
+  });
+
+  // ── Status probe (gate visibility on a configured provider key) ───────
   controller.checkStatus().then((status) => {
-    if (status.configured) {
-      panel.classList.remove('ds-unconfigured');
-      toggle.classList.remove('ds-unconfigured');
-      if (status.model) {
-        modelBadge.textContent = status.model.toUpperCase().replace('DEEPSEEK-', '');
-      }
+    if (!status.configured) return;
+    panel.classList.remove('ds-unconfigured');
+    toggle.classList.remove('ds-unconfigured');
+    providers = Array.isArray(status.providers) ? status.providers : [];
+    for (const entry of providers) {
+      const option = document.createElement('option');
+      option.value = entry.id;
+      option.textContent = entry.label;
+      providerSelect.appendChild(option);
     }
+    providerSelect.hidden = providers.length < 2;
+    selectProvider(readStoredProvider() ?? status.defaultProvider);
   });
 
   // ── Mount into the page ───────────────────────────────────────────────
@@ -229,7 +288,9 @@ export function initDeepSeekChat(actionRunner = null) {
      * @param {Function} fn
      */
     setActionRunner(fn) {
-      controller = createDeepSeekController(fn);
+      const { provider } = controller;
+      controller = createAiChatController(fn);
+      controller.provider = provider;
       controller.on(handleControllerEvent);
     },
   };
