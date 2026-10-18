@@ -128,6 +128,17 @@ function sanitizeMessages(messages) {
   });
 }
 
+/**
+ * Log a failed upstream call server-side only. Clients get a fixed message:
+ * provider error bodies are never relayed (SECURITY.md, sanitized proxy errors).
+ */
+async function logUpstreamFailure(provider, what, response) {
+  const detail = await response.text().catch(() => '');
+  console.warn(
+    `[ai-chat] ${provider.label} ${what} failed: HTTP ${response.status} ${detail.slice(0, 300)}`,
+  );
+}
+
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -200,8 +211,16 @@ async function handleAiChat(req, res) {
       stream: wantStream,
     });
 
+    if (!upstream.ok) {
+      await logUpstreamFailure(provider, 'chat', upstream);
+      sendJson(res, upstream.status === 429 ? 429 : 502, {
+        error: `${provider.label} chat request failed (HTTP ${upstream.status})`,
+      });
+      return;
+    }
+
     if (wantStream) {
-      res.statusCode = upstream.status;
+      res.statusCode = 200;
       res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-Accel-Buffering', 'no');
@@ -222,12 +241,11 @@ async function handleAiChat(req, res) {
       pump().catch(() => res.end());
     } else {
       const data = await upstream.json().catch(() => ({}));
-      sendJson(res, upstream.status, data);
+      sendJson(res, 200, data);
     }
   } catch (error) {
-    sendJson(res, 502, {
-      error: error?.message || 'AI chat request failed',
-    });
+    console.warn('[ai-chat] chat request failed:', error?.message || error);
+    sendJson(res, 502, { error: 'AI chat request failed' });
   }
 }
 
@@ -277,21 +295,25 @@ async function handleAiChatHudSummary(req, res) {
       max_tokens: 100,
       temperature: 0,
     });
-    const data = await response.json().catch(() => ({}));
-    const summary = toFiveWordHudSummary(extractChatResponseText(data));
-    if (response.ok && summary) {
-      sendJson(res, 200, { summary, error: null });
+    if (!response.ok) {
+      await logUpstreamFailure(provider, 'HUD summary', response);
+      sendJson(res, response.status === 429 ? 429 : 502, {
+        summary: null,
+        error: `${provider.label} HUD summary request failed`,
+      });
       return;
     }
-    sendJson(res, response.ok ? 502 : response.status || 502, {
-      summary: null,
-      error: response.ok
-        ? `${provider.label} returned an empty HUD summary`
-        : data.error?.message || `${provider.label} HUD summary request failed`,
+    const data = await response.json().catch(() => ({}));
+    const summary = toFiveWordHudSummary(extractChatResponseText(data));
+    sendJson(res, summary ? 200 : 502, {
+      summary: summary || null,
+      error: summary ? null : `${provider.label} returned an empty HUD summary`,
     });
   } catch (error) {
+    console.warn('[ai-chat] HUD summary failed:', error?.message || error);
     sendJson(res, 502, {
-      error: error?.message || `${provider.label} HUD summary request failed`,
+      summary: null,
+      error: `${provider.label} HUD summary request failed`,
     });
   }
 }

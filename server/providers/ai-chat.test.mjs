@@ -159,3 +159,27 @@ test('sanitizeMessages drops reasoning_content and keeps everything else', () =>
     ],
   );
 });
+
+test('a provider error body is logged server-side, never relayed', async (t) => {
+  withEnv(t, { DEEPSEEK_API_KEY: 'sk-test' });
+  const realFetch = globalThis.fetch;
+  const realWarn = console.warn;
+  const warned = [];
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: { message: 'secret detail' } }), {
+      status: 401,
+    });
+  console.warn = (...args) => warned.push(args.join(' '));
+  t.after(() => {
+    globalThis.fetch = realFetch;
+    console.warn = realWarn;
+  });
+  const { status, json } = await call(routes().get('/api/ai/chat'), {
+    method: 'POST',
+    body: JSON.stringify({ messages: [] }),
+  });
+  assert.equal(status, 502);
+  assert.equal(json.error, 'DeepSeek chat request failed (HTTP 401)');
+  assert.doesNotMatch(JSON.stringify(json), /secret detail/);
+  assert.match(warned.join('\n'), /secret detail/);
+});
