@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-10-18 — Sync to upstream v0.2.1+ and multi-provider AI chat (MiMo)
+
+**Trigger:** fork was 1,056 commits behind upstream (v0.1.1 → v0.2.1 + unreleased).
+
+**What changed:**
+- Replayed the DeepSeek commit onto upstream `93ea088f`; resolved 7 conflicts
+  (both-sides additions). Ported to upstream's renamed rate-limit helpers —
+  the old imports would have stopped the server from starting.
+- DeepSeek proxy generalized into `server/providers/ai-chat.js` with an
+  OpenAI-compatible provider table; added **Xiaomi MiMo** (Token Plan via
+  `MIMO_API_BASE`). Panel renamed GEV AI, with a provider picker.
+- `/api/ai/chat` now refuses cross-site browser requests (upstream
+  `sameSiteGated`) and is rate-limited by default (60/min).
+- Fixed: the DeepSeek HUD summary was always blank (`deepseek-flash` spent
+  the 100-token budget thinking). Thinking is now disabled for both providers.
+- Chat panel copy translated (ru/es) to pass upstream's i18n gate; cyber.css
+  kept as the last stylesheet import.
+
+**Verified:** `npm test` 7722 pass; remaining failures reproduce on pristine
+upstream (Windows 403s) or are flaky. Live: both providers call
+`fly_to_location`; HUD summary returns text; headless Edge drove the panel
+(MiMo, "Fly to Tokyo") with no page errors.
+
+---
+
 ## 2026-09-18 — Fork reset: latest upstream + DeepSeek only
 
 **Trigger:** abandon the experimental layers (GDELT news heatmap, NASA EONET)
